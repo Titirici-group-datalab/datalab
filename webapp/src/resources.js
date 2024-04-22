@@ -54,6 +54,7 @@ export const blockTypes = {
   nmr: { description: "NMR", component: NMRBlock },
   ms: { description: "Mass spectrometry", component: MassSpecBlock },
   chat: { description: "Virtual assistant", component: ChatBlock },
+  echem_sum: { description: "Electrochemistry Summary", component: EchemSumBlock },
 };
 
 export const itemTypes = {
