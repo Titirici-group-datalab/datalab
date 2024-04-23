@@ -118,3 +118,137 @@ def process_dataframe(df):
     new_df["CycleNo"] = df["full cycle"]
 
     return new_df
+
+
+def invert_charge_discharge(df):
+    # Inverts charge and discharge cycles 0 becomes positive current and 1 becomes negative current
+    df.loc[df["state"] == 0, "state"] = 2
+    df.loc[df["state"] == 1, "state"] = 0
+    df.loc[df["state"] == 2, "state"] = 1
+    return df
+
+
+def clean_signal(
+    voltage,
+    capacity,
+    dqdv,
+    polynomial_spline=3,
+    s_spline=1e-5,
+    polyorder_1=5,
+    window_size_1=101,
+    polyorder_2=5,
+    window_size_2=1001,
+):
+    # Function that cleans the raw voltage, cap and dqdv data so can get smooth curves and derivatives
+
+    df = pd.DataFrame({"voltage": voltage, "capacity": capacity, "dqdv": dqdv})
+    unique_v = (
+        df.astype(float).groupby("voltage").mean().index
+    )  # get unique voltage values
+    unique_v_cap = df.astype(float).groupby("voltage").mean()["capacity"]
+    unique_v_dqdv = df.astype(float).groupby("voltage").mean()["dqdv"]
+
+    x_volt = np.linspace(unique_v.min(), unique_v.max(), num=int(1e4))
+
+    spl_cap = splrep(unique_v, unique_v_cap, k=1, s=1.0)
+    cap = splev(x_volt, spl_cap)
+    smooth_cap = savgol_filter(cap, window_size_1, polyorder_1)
+
+    spl = splrep(unique_v, unique_v_dqdv, k=1, s=1.0)
+    y_dqdq = splev(x_volt, spl)
+    smooth_dqdv = savgol_filter(y_dqdq, window_size_1, polyorder_1)
+    smooth_spl_dqdv = splrep(x_volt, smooth_dqdv, k=polynomial_spline, s=s_spline)
+    dqdv_2 = splev(x_volt, smooth_spl_dqdv, der=1)
+    smooth_dqdv_2 = savgol_filter(dqdv_2, window_size_2, polyorder_2)
+    peak_val = max(smooth_dqdv.min(), smooth_dqdv.max(), key=abs)
+    peak_idx = np.where(smooth_dqdv == peak_val)[0]
+    return (
+        x_volt,
+        smooth_cap,
+        smooth_dqdv_2,
+        peak_idx,
+    )  # need to return peak index to ignore very low volt data
+
+
+def check_state(dqdv):
+    # Check if dqdv from discharge or charge (negative or positive peak)
+    peak_val = max(dqdv.min(), dqdv.max(), key=abs)
+    if peak_val > 0:
+        return 1
+    elif peak_val < 0:
+        return 0
+    else:
+        return "R"
+    
+
+def find_plat_cap_2(voltage, capacity, dqdv):
+    # Second iteration of finding the plateau capacity, takes min of 2nd derivative for charge and point in between max/min inflection points for discharge
+    # Preferred method as gives better results for discharge
+    x_volt, smooth_cap, smooth_dqdv_2, peak_idx = clean_signal(voltage, capacity, dqdv)
+    state = check_state(dqdv)
+    if state == 1:
+        plat_cap = smooth_cap[smooth_dqdv_2[peak_idx[0]:].argmin() + peak_idx[0]]
+    elif state == 0:
+        min_peak = smooth_dqdv_2[peak_idx[0]:].argmin() + peak_idx[0]
+        max_peak = smooth_dqdv_2[peak_idx[0]:].argmax() + peak_idx[0]
+        plat_point = round((min_peak + max_peak) / 2, 0).astype(int)
+        plat_cap = smooth_cap.max() - smooth_cap[plat_point]
+    else:
+        plat_cap = np.nan
+    return plat_cap, x_volt, smooth_cap
+
+
+def get_inflection_point(plat_cap, x_volt, smooth_cap, state):
+    # Get the inflection point for volt vs cap curve
+    if state == 0:
+        inf_point = np.argmin(np.abs(smooth_cap - (smooth_cap.max() - plat_cap)))
+    elif state == 1:
+        inf_point = np.argmin(np.abs(smooth_cap - plat_cap))
+    return inf_point
+
+
+def extract_echem_features(filepath, cycle_no=1, invert=False):
+    df = landt_file_loader(filepath)
+    if invert:
+        df = invert_charge_discharge(df)
+    volt_0 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 0)][
+        "Voltage/V"
+    ].values
+    cap_0 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 0)][
+        "SpeCap/mAh/g"
+    ].values
+    dqdv_0 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 0)][
+        "dQ/dV/mAh/V"
+    ].values
+    volt_1 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 1)][
+        "Voltage/V"
+    ].values
+    cap_1 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 1)][
+        "SpeCap/mAh/g"
+    ].values
+    dqdv_1 = df.loc[(df["CycleNo"] == cycle_no) & (df["state"] == 1)][
+        "dQ/dV/mAh/V"
+    ].values
+    plat_cap_0, x_volt_0, smooth_cap_0 = find_plat_cap_2(volt_0, cap_0, dqdv_0)
+    plat_cap_1, x_volt_1, smooth_cap_1 = find_plat_cap_2(volt_1, cap_1, dqdv_1)
+
+    ice = {"Parameter": "ICE", "Value": round(cap_1.max() / cap_0.max(), 4)}
+    charge_cap = {"Parameter": "Charge SpeCap/mAh/g", "Value": round(cap_1.max(), 2)}
+    discharge_plat_cap = {
+        "Parameter": "Discharge plateau SpeCap/mAh/g",
+        "Value": round(plat_cap_0, 2),
+    }
+    charge_plat_cap = {
+        "Parameter": "Charge plateau SpeCap/mAh/g",
+        "Value": round(plat_cap_1, 2),
+    }
+    echem_df = pd.DataFrame([ice, charge_cap, discharge_plat_cap, charge_plat_cap])
+    summary = {}
+    summary['table'] = echem_df
+    summary['discharge_plot'] = (smooth_cap_0, x_volt_0)
+    summary['charge_plot'] = (smooth_cap_1, x_volt_1)
+    inf_point_0 = get_inflection_point(plat_cap_0, x_volt_0, smooth_cap_0, 0)
+    inf_point_1 = get_inflection_point(plat_cap_1, x_volt_1, smooth_cap_1, 1)
+    summary['discharge_plateau'] = (smooth_cap_0[inf_point_0], x_volt_0[inf_point_0])
+    summary['charge_plateau'] = (smooth_cap_1[inf_point_1], x_volt_1[inf_point_1])
+    return summary
