@@ -251,4 +251,8 @@ def extract_echem_features(filepath, cycle_no=1, invert=False):
     inf_point_1 = get_inflection_point(plat_cap_1, x_volt_1, smooth_cap_1, 1)
     summary['discharge_plateau'] = (smooth_cap_0[inf_point_0], x_volt_0[inf_point_0])
     summary['charge_plateau'] = (smooth_cap_1[inf_point_1], x_volt_1[inf_point_1])
+    discharge_df = pd.DataFrame({"Voltage/V": x_volt_0, "Capacity/mAh/g": smooth_cap_0})
+    charge_df = pd.DataFrame({"Voltage/V": x_volt_1, "Capacity/mAh/g": smooth_cap_1})
+    summary['discharge_df'] = discharge_df
+    summary['charge_df'] = charge_df
     return summary
