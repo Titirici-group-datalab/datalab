@@ -3,32 +3,26 @@ from pathlib import Path
 
 import bokeh.embed
 import pandas as pd
-from bokeh.models import HoverTool, LogColorMapper
+from bokeh.models import HoverTool, LogColorMapper, Span
+from bokeh.plotting import figure
+from bokeh.layouts import gridplot
 from io import StringIO
-import lxml
 import re
 
 from pydatalab.blocks.base import DataBlock
-from pydatalab.bokeh_plots import DATALAB_BOKEH_THEME, selectable_axes_plot
+from pydatalab.bokeh_plots import DATALAB_BOKEH_GRID_THEME, selectable_axes_plot
 from pydatalab.file_utils import get_file_info_by_id
 from pydatalab.logger import LOGGER
 from pydatalab.mongo import flask_mongo
 from .utils import extract_echem_features
 
 
-def parse_ivium_eis_txt(filename: Path):
-    eis = pd.read_csv(filename, sep="\t")
-    eis["Z2 /ohm"] *= -1
-    eis.rename(
-        {"Z1 /ohm": "Re(Z) [Ω]", "Z2 /ohm": "-Im(Z) [Ω]", "freq. /Hz": "Frequency [Hz]"},
-        inplace=True,
-        axis="columns",
-    )
-    return eis
-
-
 class EchemSumBlock(DataBlock):
-    accepted_file_extensions = [".csv", ".xlsx", ".xls"]
+    accepted_file_extensions = [
+        ".csv", 
+        ".xlsx", 
+        ".xls"
+    ]
     blocktype = "echem_sum"
     name = "Electrochemistry Summary"
     description = "Electrochemistry Summary"
@@ -64,7 +58,7 @@ class EchemSumBlock(DataBlock):
 
     @property
     def plot_functions(self):
-        return (self.generate_echem_summary)
+        return (self.generate_echem_summary,)
 
     def generate_echem_summary(self):
         file_info = None
@@ -86,53 +80,43 @@ class EchemSumBlock(DataBlock):
             
             echem_summary_data = extract_echem_features(Path(file_info["location"]))
         
+        synth_table = None
         if echem_summary_data is not None:
             negative_electrode_id = self._get_negative_electrode()
             if negative_electrode_id is not None:
                 synthesis_description = self._get_synth_description(negative_electrode_id)
                 synth_table = self._extract_synth_table(synthesis_description)
             
-            # add plot
-            # add merging tables and converting to html
-            # print message if no synth data
-
-
-
-    @property
-    def plot_functions(self):
-        return (self.generate_eis_plot,)
-
-    def generate_eis_plot(self):
-        file_info = None
-        # all_files = None
-        eis_data = None
-
-        if "file_id" not in self.data:
-            LOGGER.warning("No file set in the DataBlock")
-            return
-        else:
-            file_info = get_file_info_by_id(self.data["file_id"], update_if_live=True)
-            ext = os.path.splitext(file_info["location"].split("/")[-1])[-1].lower()
-            if ext not in self.accepted_file_extensions:
-                LOGGER.warning(
-                    "Unsupported file extension (must be one of %s, not %s)",
-                    self.accepted_file_extensions,
-                    ext,
-                )
-                return
-
-            eis_data = parse_ivium_eis_txt(Path(file_info["location"]))
-
-        if eis_data is not None:
-            plot = selectable_axes_plot(
-                eis_data,
-                x_options=["Re(Z) [Ω]"],
-                y_options=["-Im(Z) [Ω]"],
-                color_options=["Frequency [Hz]"],
-                color_mapper=LogColorMapper("Cividis256"),
-                plot_points=True,
-                plot_line=False,
-                tools=HoverTool(tooltips=[("Frequency [Hz]", "@{Frequency [Hz]}")]),
+            plot_0 = figure(
+                aspect_ratio=1.5,
+                x_axis_label="Specific Capacity [mAh/g]",
+                y_axis_label="Voltage [V]",
+                title="Discharge curve",
+                tools=[HoverTool(tooltips=[("Specific Capacity", "@x"), ("Voltage", "@y")])]
             )
+            plot_0.line(echem_summary_data["discharge_plot"][0], echem_summary_data["discharge_plot"][1], color='blue', line_width=2)
+            plot_0.circle(echem_summary_data["discharge_plateau"][0], echem_summary_data["discharge_plateau"][1], color='red', size=10)
+            plateau_0 = Span(location=echem_summary_data["discharge_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
+            plot_0.add_layout(plateau_0)
 
-            self.data["bokeh_plot_data"] = bokeh.embed.json_item(plot, theme=DATALAB_BOKEH_THEME)
+            plot_1 = figure(
+                aspect_ratio=1.5,
+                x_axis_label="Specific Capacity [mAh/g]",
+                y_axis_label="Voltage [V]",
+                title="Charge curve",
+                tools=[HoverTool(tooltips=[("Specific Capacity", "@x"), ("Voltage", "@y")])]
+            )
+            plot_1.line(echem_summary_data["charge_plot"][0], echem_summary_data["charge_plot"][1], color='blue', line_width=2)
+            plot_1.circle(echem_summary_data["charge_plateau"][0], echem_summary_data["charge_plateau"][1], color='red', size=10)
+            plateau_1 = Span(location=echem_summary_data["charge_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
+            plot_1.add_layout(plateau_1)
+
+            p = gridplot([[plot_0, plot_1]], sizing_mode="scale_width")
+            if synth_table is not None:
+                summary_df = pd.concat([echem_summary_data['table'], synth_table], axis=0, ignore_index=True)
+            else:
+                summary_df = echem_summary_data['table']
+            summary_html_table = summary_df.to_html(border=1, index=False)
+
+            self.data["bokeh_plot_data"] = bokeh.embed.json_item(p, theme=DATALAB_BOKEH_GRID_THEME)
+            self.data["freeform_comment"] = summary_html_table
