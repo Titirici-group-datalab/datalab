@@ -38,6 +38,7 @@ paramiko = "*"
 langchain = "*"
 langchain-openai = "*"
 langchain-anthropic = "*"
+lxml = "*"
 
 [dev-packages]
 pytest = "*"
