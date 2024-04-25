@@ -3,14 +3,14 @@ from pathlib import Path
 
 import bokeh.embed
 import pandas as pd
-from bokeh.models import HoverTool, LogColorMapper, Span, Scatter
+from bokeh.models import HoverTool, Span
 from bokeh.plotting import figure
 from bokeh.layouts import gridplot
 from io import StringIO
 import re
 
 from pydatalab.blocks.base import DataBlock
-from pydatalab.bokeh_plots import DATALAB_BOKEH_GRID_THEME, DATALAB_BOKEH_THEME, selectable_axes_plot, TOOLS
+from pydatalab.bokeh_plots import DATALAB_BOKEH_THEME, selectable_axes_plot, TOOLS
 from pydatalab.file_utils import get_file_info_by_id
 from pydatalab.logger import LOGGER
 from pydatalab.mongo import flask_mongo
@@ -87,74 +87,36 @@ class EchemSumBlock(DataBlock):
                 synthesis_description = self._get_synth_description(negative_electrode_id)
                 synth_table = self._extract_synth_table(synthesis_description)
             
-            plot_0 = figure(
-                aspect_ratio=1.5,
-                x_axis_label="Specific Capacity [mAh/g]",
-                y_axis_label="Voltage [V]",
-                title="Discharge curve",
-                tools=TOOLS
-            )
+            plots = []
+            curve_names = ["discharge", "charge"]
+            for name in curve_names:
+                curve_df = echem_summary_data[f"{name}_df"]
+                plot = selectable_axes_plot(
+                    curve_df,
+                    x_options=["Capacity/mAh/g"],
+                    y_options=["Voltage/V"],
+                    plot_points=False,
+                    plot_line=True,
+                    plot_title=f"{name.capitalize()} curve",
+                    aspect_ratio=1.5,
+                )
+                plot_figure = plot.children[1]
+                plot_figure.renderers[0].name = f'{name}_plot'  # have to add name parameter to plot so that hover tool doesn't duplicate on marker point
+                plot_figure.add_tools(HoverTool(names=[f'{name}_plot'], tooltips=[("Specific Capacity", "@x"), ("Voltage", "@y")]))
+                plot_figure.line(echem_summary_data[f"{name}_plot"][0], echem_summary_data[f"{name}_plot"][1], color='blue', line_width=2, name=f"{name}_plot")
+                plot_figure.scatter(x=echem_summary_data[f"{name}_plateau"][0], y=echem_summary_data[f"{name}_plateau"][1], color='red', size=20, marker='x')
+                plateau = Span(location=echem_summary_data[f"{name}_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
+                plot_figure.add_layout(plateau)
+                plots.append(plot)
             
-            plot_0.line(echem_summary_data["discharge_plot"][0], echem_summary_data["discharge_plot"][1], color='blue', line_width=2, name='discharge_plot')
-            plot_0.scatter(x=echem_summary_data["discharge_plateau"][0], y=echem_summary_data["discharge_plateau"][1], color='red', size=10, marker='x')
-            plateau_0 = Span(location=echem_summary_data["discharge_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
-            plot_0.add_layout(plateau_0)
-            plot_0.add_tools(HoverTool(names=['discharge_plot'], tooltips=[("Specific Capacity", "@x"), ("Voltage", "@y")]))
-            plot_0.toolbar.logo = "grey"
+            p = gridplot([plots], sizing_mode="scale_width")
 
-            plot_1 = figure(
-                aspect_ratio=1.5,
-                x_axis_label="Specific Capacity [mAh/g]",
-                y_axis_label="Voltage [V]",
-                title="Charge curve",
-                tools=TOOLS
-            )
-            
-            plot_1.toolbar.logo = "grey"
-            plot_1.line(echem_summary_data["charge_plot"][0], echem_summary_data["charge_plot"][1], color='blue', line_width=2, name="charge_plot")
-            plot_1.scatter(x=echem_summary_data["charge_plateau"][0], y=echem_summary_data["charge_plateau"][1], color='red', size=10, marker='x')
-            plateau_1 = Span(location=echem_summary_data["charge_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
-            plot_1.add_layout(plateau_1)
-            plot_1.add_tools(HoverTool(names=['charge_plot'], tooltips=[("Specific Capacity", "@x"), ("Voltage", "@y")]))
-
-            p = gridplot([[plot_0, plot_1]], sizing_mode="scale_width")
             if synth_table is not None:
                 summary_df = pd.concat([echem_summary_data['table'], synth_table], axis=0, ignore_index=True)
             else:
                 summary_df = echem_summary_data['table']
             summary_html_table = summary_df.to_html(border=1, index=False)
 
+
             self.data["bokeh_plot_data"] = bokeh.embed.json_item(p, theme=DATALAB_BOKEH_THEME)
             self.data["freeform_comment"] = summary_html_table
-
-            # plots = []
-            # curve_names = ["discharge", "charge"]
-            # for name in curve_names:
-            #     curve_df = echem_summary_data[f"{name}_df"]
-            #     plot = selectable_axes_plot(
-            #         curve_df,
-            #         x_options=["Capacity/mAh/g"],
-            #         y_options=["Voltage/V"],
-            #         plot_points=False,
-            #         plot_line=True,
-            #         plot_title=f"{name.capitalize()} curve",
-            #         aspect_ratio=1.5,
-            #         tools=HoverTool(tooltips=[("Voltage/V", "@{Voltage/V}"), ("Capacity/mAh/g", "@{Capacity/mAh/g}")]),
-            #     )
-            #     # marker = Scatter(x=[echem_summary_data[f"{name}_plateau"][0]], y=[echem_summary_data[f"{name}_plateau"][1]], size=10, fill_color='red')
-            #     # plateau = Span(location=echem_summary_data[f"{name}_plateau"][1], dimension='width', line_color='red', line_width=2, line_dash='dotted')
-            #     # plot.add_layout(plateau)
-            #     # plot.add_glyph(marker)
-            #     # new_fig = figure()
-            #     # new_fig.add_layout(plateau)
-            #     # plot.children.append(new_fig)
-            #     plots.append(plot)
-            
-            # p = gridplot([plots], sizing_mode="scale_width")
-            # self.data["bokeh_plot_data"] = bokeh.embed.json_item(p, theme=DATALAB_BOKEH_THEME)
-            # self.data["freeform_comment"] = summary_html_table
-
-
-            
-                
-                
