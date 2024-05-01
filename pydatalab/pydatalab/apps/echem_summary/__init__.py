@@ -48,6 +48,8 @@ class EchemSumBlock(DataBlock):
     
     def _extract_synth_table(self, synthesis_description):
         # Extract the synthesis table from the synthesis description
+        if synthesis_description is None:
+            return None
         table_regex = r'<table[^>]*>(.*?)</table>'
         tables = re.findall(table_regex, synthesis_description, flags=re.IGNORECASE | re.DOTALL)
         if len(tables) == 0:
