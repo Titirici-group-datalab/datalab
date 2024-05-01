@@ -33,7 +33,7 @@ class EchemSumBlock(DataBlock):
             {"item_id": self.data["item_id"]}, {"negative_electrode": 1}
         )
         doc = doc.get("negative_electrode", None)
-        if doc is not None:
+        if len(doc) > 0:
             negative_electrode_id = doc[0]["item"].get("item_id", None)
             return negative_electrode_id
         return None
