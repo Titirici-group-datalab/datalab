@@ -239,6 +239,10 @@ export function getCollectionList() {
 export function getUsersList() {
   return fetch_get(`${API_URL}/users`)
     .then(function (response_json) {
+      const users = response_json.data;
+      const hasUnverified = users.some((user) => user.account_status === "unverified");
+      store.commit("updateHasUnverified", hasUnverified);
+
       return response_json.data;
     })
     .catch((error) => {
@@ -299,10 +303,24 @@ export async function getUserInfo() {
   return fetch_get(`${API_URL}/get-current-user/`)
     .then((response_json) => {
       store.commit("setDisplayName", response_json.display_name);
+      store.commit("setIsUnverified", response_json.account_status == "unverified" ? true : false);
       return response_json;
     })
     .catch(() => {
       return null;
+    });
+}
+
+export async function requestMagicLink(email_address) {
+  return fetch_post(`${API_URL}/login/magic-link`, {
+    email: email_address,
+    referrer: window.location.origin,
+  })
+    .then((response_json) => {
+      return response_json;
+    })
+    .catch((err) => {
+      return err;
     });
 }
 
@@ -496,6 +514,10 @@ export function saveUser(user_id, user) {
   fetch_patch(`${API_URL}/users/${user_id}`, user)
     .then(function (response_json) {
       if (response_json.status === "success") {
+        if (user.account_status) {
+          getUserInfo();
+          getUsersList();
+        }
         console.log("Save successful!");
       } else {
         alert("User save unsuccessful", response_json.detail);
@@ -631,14 +653,15 @@ export async function requestNewAPIKey() {
   }
 }
 
-// export async function addRemoteFilesToSample(file_entries, item_id) {
-//  console.log('loadSelectedRemoteFiles')
-//  return fetch_post(`${API_URL}/add-remote-files-to-sample/`, {
-//    file_entries: file_entries,
-//    item_id: item_id,
-//  }).then( function(response_json) {
-//    //handle response
-//    console.log("received remote samples!")
-//    console.log(response_json)
-//  }).catch( error => (`addRemoteFilesToSample unsuccessful. Error: ${error}`))
-// }
+export function getBlocksInfos() {
+  return fetch_get(`${API_URL}/info/blocks`)
+    .then(function (response_json) {
+      store.commit("setBlocksInfos", response_json.data);
+      return response_json.data;
+    })
+    .catch((error) => {
+      console.error("Error when fetching blocks info");
+      console.error(error);
+      throw error;
+    });
+}

@@ -27,6 +27,9 @@ export default createStore({
     remoteDirectoryTreeIsLoading: false,
     fileSelectModalIsOpen: false,
     currentUserDisplayName: null,
+    blocksInfos: {},
+    currentUserIsUnverified: false,
+    hasUnverifiedUser: false,
   },
   mutations: {
     setSampleList(state, sampleSummaries) {
@@ -43,6 +46,9 @@ export default createStore({
     },
     setDisplayName(state, displayName) {
       state.currentUserDisplayName = displayName;
+    },
+    setIsUnverified(state, isUnverified) {
+      state.currentUserIsUnverified = isUnverified;
     },
     setEquipmentList(state, equipmentSummaries) {
       // equipmentSummary is an array of json objects summarizing the available samples
@@ -263,6 +269,17 @@ export default createStore({
     setItemGraph(state, payload) {
       state.itemGraphData = payload;
     },
+    setBlocksInfos(state, blocksInfos) {
+      blocksInfos.forEach((info) => {
+        state.blocksInfos[info.id] = info;
+      });
+    },
+    updateUnverifiedUserStatus(state, hasUnverified) {
+      state.currentUserIsUnverified = hasUnverified;
+    },
+    updateHasUnverified(state, hasUnverified) {
+      state.hasUnverifiedUser = hasUnverified;
+    },
   },
   getters: {
     getItem: (state) => (item_id) => {
@@ -274,6 +291,12 @@ export default createStore({
     },
     getCurrentUserDisplayName(state) {
       return state.currentUserDisplayName;
+    },
+    getCurrentUserIsUnverified(state) {
+      return state.currentUserIsUnverified;
+    },
+    getHasUnverifiedUser(state) {
+      return state.hasUnverifiedUser;
     },
   },
   actions: {},

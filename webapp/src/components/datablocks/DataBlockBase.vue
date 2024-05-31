@@ -9,6 +9,7 @@
       />
       <input class="form-control-plaintext block-title" type="text" v-model="BlockTitle" />
       <span class="blocktype-label ml-auto mr-3">{{ blockType }}</span>
+      <span class="block-header-icon"><StyledBlockInfo :blockInfo="blockInfo" /></span>
       <font-awesome-icon
         :icon="['fa', 'sync']"
         class="block-header-icon"
@@ -72,8 +73,16 @@
 </template>
 
 <script>
+/**
+ * DataBlockBase - A base component for all data blocks.
+ *
+ * This component is used to create a data block that can be expanded, collapsed,
+ * moved, deleted and annotated with a title and description.
+ *
+ */
 import { createComputedSetterForBlockField } from "@/field_utils.js";
 import TinyMceInline from "@/components/TinyMceInline";
+import StyledBlockInfo from "@/components/StyledBlockInfo";
 import tinymce from "tinymce/tinymce";
 
 import { deleteBlock, updateBlockFromServer } from "@/server_fetch_utils";
@@ -106,6 +115,9 @@ export default {
     },
     isUpdating() {
       return this.$store.state.updatingDelayed[this.block_id];
+    },
+    blockInfo() {
+      return this.$store.state.blocksInfos[this.blockType];
     },
     BlockTitle: createComputedSetterForBlockField("title"),
     BlockDescription: createComputedSetterForBlockField("freeform_comment"),
@@ -172,6 +184,7 @@ export default {
   },
   components: {
     TinyMceInline,
+    StyledBlockInfo,
   },
 };
 </script>

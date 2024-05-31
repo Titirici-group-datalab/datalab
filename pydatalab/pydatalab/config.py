@@ -124,6 +124,11 @@ class SMTPSettings(BaseModel):
 class ServerConfig(BaseSettings):
     """A model that provides settings for deploying the API."""
 
+    APP_URL: str | None = Field(
+        None,
+        description="The canonical URL for any UI associated with this instance; will be used for redirects on user login/registration.",
+    )
+
     SECRET_KEY: str = Field(
         hashlib.sha512((platform.platform() + str(platform.python_build)).encode()).hexdigest(),
         description="The secret key to use for Flask. This value should be changed and/or loaded from an environment variable for production deployments.",
@@ -192,9 +197,14 @@ class ServerConfig(BaseSettings):
         None, description="A dictionary containing metadata to serve at `/info`."
     )
 
+    ORCID_AUTO_ACTIVATE_ACCOUNTS: bool = Field(
+        False,
+        description="Whether to automatically activate accounts created via ORCID registration.",
+    )
+
     EMAIL_DOMAIN_ALLOW_LIST: Optional[List[str]] = Field(
         [],
-        description="A list of domains for which user's will be able to register accounts if they have a matching email address. Setting the value to `None` will allow any email addresses at any domain to register an account, otherwise the default `[]` will not allow any email addresses.",
+        description="A list of domains for which users will be able to register accounts if they have a matching verified email address, which still need to be verified by an admin. Setting the value to `None` will allow any email addresses at any domain to register *and activate* an account, otherwise the default `[]` will not allow any email addresses registration.",
     )
 
     EMAIL_AUTH_SMTP_SETTINGS: Optional[SMTPSettings] = Field(

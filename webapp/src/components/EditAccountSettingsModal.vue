@@ -10,8 +10,17 @@
       <template v-slot:header> Account settings </template>
 
       <template v-slot:body>
+        <div class="mx-auto align-center text-center p-4">
+          <UserBubble :creator="this.user" :size="128" />&nbsp;
+        </div>
         <div class="form-row">
-          <div class="form-group col-md-6">
+          <div class="form-group col-md-8 mx-auto text-justify">
+            You can add an avatar by registering your <i>datalab</i> contact email at
+            <a href="https://gravatar.com" target="_blank">gravatar.com</a>.
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-8">
             <label for="account-name" class="col-form-label">Name:</label>
             <input
               v-model="user.display_name"
@@ -24,7 +33,7 @@
           </div>
         </div>
         <div class="form-row">
-          <div class="form-group col-md-6">
+          <div class="form-group col-md-8">
             <label for="account-email" class="col-form-label">Contact email:</label>
             <input
               v-model="user.contact_email"
@@ -38,6 +47,7 @@
         </div>
         <div class="form-row">
           <div class="form-group col-md-6">
+            <label for="connected-accounts" class="col-form-label">Connected accounts:</label>
             <a
               v-if="user.identities.some((identity) => identity.identity_type === 'github')"
               type="button"
@@ -90,12 +100,11 @@
           <div class="form-group col-md-12">
             <label for="api-key" class="col-form-label">API Key:</label>
             <div v-if="apiKeyDisplayed" class="input-group">
-              <input
-                type="text"
+              <StyledInput
+                v-model="apiKey"
+                :readonly="true"
+                :helpMessage="apiKeyHelpMessage"
                 class="form-control"
-                style="text-overflow: ellipsis"
-                :value="apiKey"
-                readonly
               />
               <div class="input-group-append">
                 <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard">
@@ -103,7 +112,7 @@
                 </button>
               </div>
             </div>
-            <div>
+            <div class="input-group">
               <button class="btn btn-default mt-2" @click="requestAPIKey">
                 Regenerate API Key
               </button>
@@ -118,19 +127,24 @@
 <script>
 import { API_URL } from "@/resources.js";
 import Modal from "@/components/Modal.vue";
+import UserBubble from "@/components/UserBubble.vue";
 import { getUserInfo, saveUser, requestNewAPIKey } from "@/server_fetch_utils.js";
+import StyledInput from "./StyledInput.vue";
+
 export default {
   name: "EditAccountSettingsModal",
   data() {
     return {
       user: {
-        display_name: null,
-        contact_email: null,
+        display_name: "",
+        contact_email: "",
         identities: [],
       },
       apiUrl: API_URL,
       apiKeyDisplayed: false,
       apiKey: null,
+      apiKeyHelpMessage:
+        'You can use your API key via the datalab-api Python package, or pass it as an HTTP header "DATALAB-API-KEY" with the tool of your choice (e.g., curl).',
     };
   },
   props: {
@@ -165,6 +179,13 @@ export default {
       let user = await getUserInfo();
       if (user != null) {
         this.user = user;
+      } else {
+        this.user = {
+          display_name: "",
+          contact_email: "",
+          identities: [],
+          role: "user",
+        };
       }
     },
     async requestAPIKey(event) {
@@ -196,6 +217,8 @@ export default {
   },
   components: {
     Modal,
+    StyledInput,
+    UserBubble,
   },
 };
 </script>
