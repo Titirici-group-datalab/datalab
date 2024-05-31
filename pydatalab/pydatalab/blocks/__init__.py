@@ -10,6 +10,7 @@ from pydatalab.apps.tga import MassSpecBlock
 from pydatalab.apps.xrd import XRDBlock
 from pydatalab.blocks.base import DataBlock
 from pydatalab.blocks.common import CommentBlock, MediaBlock, NotSupportedBlock
+from pydatalab.apps.echem_summary import EchemSumBlock
 
 BLOCKS: Sequence[Type["DataBlock"]] = (
     CommentBlock,
@@ -22,6 +23,7 @@ BLOCKS: Sequence[Type["DataBlock"]] = (
     MassSpecBlock,
     ChatBlock,
     EISBlock,
+    EchemSumBlock,
 )
 
 BLOCK_TYPES: Dict[str, Type["DataBlock"]] = {block.blocktype: block for block in BLOCKS}
@@ -39,4 +41,5 @@ __all__ = (
     "MassSpecBlock",
     "BLOCK_TYPES",
     "BLOCKS",
+    "EchemSumBlock",
 )

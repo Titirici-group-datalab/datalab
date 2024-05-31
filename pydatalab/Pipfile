@@ -39,6 +39,7 @@ langchain = "*"
 langchain-openai = "*"
 langchain-anthropic = "*"
 transformers = "*"
+lxml = "*"
 
 [dev-packages]
 pytest = "*"

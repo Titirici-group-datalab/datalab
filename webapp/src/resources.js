@@ -8,6 +8,7 @@ import CycleBlock from "@/components/datablocks/CycleBlock";
 import NMRBlock from "@/components/datablocks/NMRBlock";
 import EISBlock from "@/components/datablocks/EISBlock";
 import MassSpecBlock from "@/components/datablocks/MassSpecBlock";
+import EchemSumBlock from "@/components/datablocks/EchemSumBlock";
 
 import SampleInformation from "@/components/SampleInformation";
 import StartingMaterialInformation from "@/components/StartingMaterialInformation";
@@ -54,6 +55,7 @@ export const blockTypes = {
   nmr: { description: "Nuclear Magnetic Resonance Spectroscopy", component: NMRBlock, name: "NMR" },
   ms: { description: "Mass Spectrometry", component: MassSpecBlock, name: "Mass Spectrometry" },
   chat: { description: "Virtual assistant", component: ChatBlock, name: "Virtual Assistant" },
+  echem_sum: { description: "Electrochemistry Summary", component: EchemSumBlock, name: "Electrochemistry Summary" },
 };
 
 export const itemTypes = {

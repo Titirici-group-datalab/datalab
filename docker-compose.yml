@@ -9,10 +9,9 @@ services:
       - ./logs:/logs
     restart: always
     environment:
-      - VUE_APP_API_URL
-      - VUE_APP_LOGO_URL
-      - VUE_APP_HOMEPAGE_URL
-      - VUE_APP_EDITABLE_INVENTORY
+      - VUE_APP_API_URL=http://titirici-datalab.ch.ic.ac.uk:5001
+      - VUE_APP_LOGO_URL=https://images.squarespace-cdn.com/content/v1/5c619b5c523958463c9806fc/1586972125161-PJ57FS4GS3BHUCYOIL5V/logo%2Bresearch-01.png
+      - VUE_APP_HOMEPAGE_URL=https://www.titiricigroup.com/
     ports:
       - "8081:8081"
 
@@ -41,8 +40,9 @@ services:
     restart: always
     volumes:
       - ./logs:/logs
-      - /data/files:/app/files
-      - /data/backups:/data/backups
+      - ./config.json:/app/config.json
+      - ./.env:/app/.env
+      - /data:/app/files
     ports:
       - "5001:5001"
     networks:
